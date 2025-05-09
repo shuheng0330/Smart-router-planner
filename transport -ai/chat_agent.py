@@ -169,10 +169,9 @@ def get_route_summary(input_text: str) -> str:
         return "Please specify origin and destination using the format: from A to B"
 
     parts = input_text.lower().split("to")
-    origin = parts[0].replace("from", "").strip()
+    origin = re.sub(r"(?i)get me the route from", "", parts[0]).replace("from", "").strip()
     destination = parts[1].split("using")[0].strip()
 
-    # Extract mode if mentioned
     mode = "transit"
     if "driving" in input_text.lower():
         mode = "driving"
@@ -194,10 +193,9 @@ def get_route_summary(input_text: str) -> str:
 
 def save_favorite_route(input_text: str) -> str:
     try:
-        name = "custom"  # Default name if not provided
+        name = "custom"
         origin = destination = mode = None
 
-        # First: try flexible natural phrase parsing
         natural_match = re.search(
             r"from\s+(.*?)\s+to\s+(.*?)(?:\s+by\s+(\w+))?",
             input_text,
@@ -209,7 +207,6 @@ def save_favorite_route(input_text: str) -> str:
             mode_raw = natural_match.group(3)
             mode = mode_raw.lower() if mode_raw else "transit"
         else:
-            # Second: try comma-separated format
             parts = [x.strip() for x in input_text.split(",")]
             if len(parts) >= 3:
                 name = parts[0].lower()
@@ -221,7 +218,6 @@ def save_favorite_route(input_text: str) -> str:
                         "• 'from ORIGIN to DESTINATION by MODE'\n"
                         "• or 'name, origin, destination[, mode]'")
 
-        # Clean up mode
         valid_modes = ["driving", "walking", "transit", "bicycling"]
         for vm in valid_modes:
             if vm in mode:
@@ -230,14 +226,17 @@ def save_favorite_route(input_text: str) -> str:
         else:
             return f"❌ Invalid transport mode. Use one of: {', '.join(valid_modes)}"
 
-        # Validate origin/destination
         if not origin or not destination:
             return "❌ Please specify both origin and destination clearly."
+
+        # Attempt to remove misleading prompt words
+        origin = re.sub(r"(?i)get me the route from", "", origin).strip()
+        destination = re.sub(r"(?i)get me the route to", "", destination).strip()
+
         if any(x in origin.lower() for x in ["get me", "route"]) or \
            any(x in destination.lower() for x in ["get me", "route"]):
             return "❌ Invalid origin/destination. Please use proper place names only."
 
-        # Save route
         favorite_routes[name] = {
             "origin": origin,
             "destination": destination,
@@ -248,7 +247,6 @@ def save_favorite_route(input_text: str) -> str:
 
     except Exception as e:
         return f"❌ Failed to save route: {e}"
-
 
 def get_favorite_route_summary(name: str) -> str:
     fav_name = name.lower().strip()
